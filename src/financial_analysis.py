@@ -82,3 +82,41 @@ def process_all_stocks(data_directory):
         processed_dfs[ticker] = df_clean.reset_index()
 
     return processed_dfs
+
+# Financial Returns and Correlation 
+
+def calculate_daily_returns(df, close_col='Close'):
+    """Computes the percentage change in daily closing prices (Daily Stock Returns)."""
+    # Requires the Date column to be present
+    df['Daily_Return'] = df[close_col].pct_change() * 100
+    return df
+
+def calculate_correlation(returns_df, sentiment_df):
+    """
+    Merges returns and sentiment data on 'Date' and calculates the Pearson correlation.
+    (FIXED: Strips timezones to ensure successful merge.)
+    """
+
+    
+    # Process returns_df 'Date' column
+    returns_df['Date'] = pd.to_datetime(returns_df['Date']).dt.tz_localize(None) 
+    
+    # Process sentiment_df 'Date' column
+    # Use errors='coerce' to handle any remaining mixed formats gracefully, 
+    # then strip the timezone.
+    sentiment_df['Date'] = pd.to_datetime(sentiment_df['Date'], errors='coerce').dt.tz_localize(None)
+    
+    # Merge the two DataFrames on the 'Date' and 'Ticker' columns
+    combined_df = pd.merge(
+        returns_df[['Date', 'Daily_Return', 'Ticker']], 
+        sentiment_df, 
+        on=['Date', 'Ticker'], 
+        how='inner' # Only keep dates present in both datasets (Date Alignment)
+    ).dropna()
+    
+    # Calculate the Pearson correlation coefficient grouped by Ticker
+    correlation_results = combined_df.groupby('Ticker').apply(
+        lambda x: x['Daily_Return'].corr(x['avg_daily_sentiment'], method='pearson')
+    ).reset_index(name='Pearson_Correlation')
+    
+    return combined_df, correlation_results

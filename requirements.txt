@@ -8,3 +8,4 @@ yfinance
 pynance
 TA-Lib
 jupyter
+tabulate
